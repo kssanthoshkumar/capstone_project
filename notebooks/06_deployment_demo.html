@@ -8088,6 +8088,145 @@ ReDoc: <a href="http://localhost:8000/redoc">http://localhost:8000/redoc</a></p>
 </div>
 </div>
 </div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c29add61">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<hr/>
+<h2 id="Step-9-%E2%80%94-GenAI:-AI-Analyst-Explainer-(GPT-4o-mini)">Step 9 — GenAI: AI Analyst Explainer (GPT-4o-mini)<a class="anchor-link" href="#Step-9-%E2%80%94-GenAI:-AI-Analyst-Explainer-(GPT-4o-mini)">¶</a></h2><p><code>src/genai_explainer.py</code> adds a live LLM-powered explanation layer to every prediction.
+The function uses the model's output + key connection features to generate a plain-English
+SOC analyst briefing via the OpenAI API.</p>
+<p><strong>Graceful degradation:</strong> works without an API key (returns informational message).</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=852962a5">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">'../src'</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">genai_explainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">explain_prediction</span>
+
+<span class="c1"># --- Example 1: DoS Attack (Neptune SYN flood) ---</span>
+<span class="n">dos_features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"protocol_type"</span><span class="p">:</span> <span class="s2">"tcp"</span><span class="p">,</span> <span class="s2">"service"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span> <span class="s2">"flag"</span><span class="p">:</span> <span class="s2">"S0"</span><span class="p">,</span>
+    <span class="s2">"src_bytes"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"dst_bytes"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"logged_in"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"num_failed_logins"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"root_shell"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"num_compromised"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"serror_rate"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"rerror_rate"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s2">"count"</span><span class="p">:</span> <span class="mi">511</span><span class="p">,</span> <span class="s2">"srv_count"</span><span class="p">:</span> <span class="mi">511</span><span class="p">,</span> <span class="s2">"same_srv_rate"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s2">"dst_host_count"</span><span class="p">:</span> <span class="mi">255</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"EXAMPLE 1 — DoS Attack (Neptune SYN Flood)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Model: ATTACK  |  Probability: 99.8%"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">explanation_1</span> <span class="o">=</span> <span class="n">explain_prediction</span><span class="p">(</span><span class="s2">"attack"</span><span class="p">,</span> <span class="mf">0.998</span><span class="p">,</span> <span class="n">dos_features</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">explanation_1</span><span class="p">)</span>
+
+<span class="c1"># --- Example 2: Normal HTTP browsing ---</span>
+<span class="n">normal_features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"protocol_type"</span><span class="p">:</span> <span class="s2">"tcp"</span><span class="p">,</span> <span class="s2">"service"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span> <span class="s2">"flag"</span><span class="p">:</span> <span class="s2">"SF"</span><span class="p">,</span>
+    <span class="s2">"src_bytes"</span><span class="p">:</span> <span class="mi">232</span><span class="p">,</span> <span class="s2">"dst_bytes"</span><span class="p">:</span> <span class="mi">8153</span><span class="p">,</span> <span class="s2">"logged_in"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">"num_failed_logins"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"root_shell"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"num_compromised"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"serror_rate"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"rerror_rate"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s2">"count"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"srv_count"</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">"same_srv_rate"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s2">"dst_host_count"</span><span class="p">:</span> <span class="mi">255</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"EXAMPLE 2 — Normal HTTP Browsing"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Model: NORMAL  |  Probability: 0.4%"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">explanation_2</span> <span class="o">=</span> <span class="n">explain_prediction</span><span class="p">(</span><span class="s2">"normal"</span><span class="p">,</span> <span class="mf">0.004</span><span class="p">,</span> <span class="n">normal_features</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">explanation_2</span><span class="p">)</span>
+
+<span class="c1"># --- Example 3: Port Scan (Probe) ---</span>
+<span class="n">probe_features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"protocol_type"</span><span class="p">:</span> <span class="s2">"tcp"</span><span class="p">,</span> <span class="s2">"service"</span><span class="p">:</span> <span class="s2">"private"</span><span class="p">,</span> <span class="s2">"flag"</span><span class="p">:</span> <span class="s2">"REJ"</span><span class="p">,</span>
+    <span class="s2">"src_bytes"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"dst_bytes"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"logged_in"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"num_failed_logins"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"root_shell"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"num_compromised"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">"serror_rate"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"rerror_rate"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s2">"count"</span><span class="p">:</span> <span class="mi">229</span><span class="p">,</span> <span class="s2">"srv_count"</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span> <span class="s2">"same_srv_rate"</span><span class="p">:</span> <span class="mf">0.06</span><span class="p">,</span>
+    <span class="s2">"dst_host_count"</span><span class="p">:</span> <span class="mi">255</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"EXAMPLE 3 — Port Scan (Probe Attack)"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Model: ATTACK  |  Probability: 94.1%"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">explanation_3</span> <span class="o">=</span> <span class="n">explain_prediction</span><span class="p">(</span><span class="s2">"attack"</span><span class="p">,</span> <span class="mf">0.941</span><span class="p">,</span> <span class="n">probe_features</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">explanation_3</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>============================================================
+EXAMPLE 1 — DoS Attack (Neptune SYN Flood)
+Model: ATTACK  |  Probability: 99.8%
+============================================================
+AI explanation unavailable — set the OPENAI_API_KEY environment variable to enable this feature.  See .env.example for instructions.
+
+============================================================
+EXAMPLE 2 — Normal HTTP Browsing
+Model: NORMAL  |  Probability: 0.4%
+============================================================
+AI explanation unavailable — set the OPENAI_API_KEY environment variable to enable this feature.  See .env.example for instructions.
+
+============================================================
+EXAMPLE 3 — Port Scan (Probe Attack)
+Model: ATTACK  |  Probability: 94.1%
+============================================================
+AI explanation unavailable — set the OPENAI_API_KEY environment variable to enable this feature.  See .env.example for instructions.
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b110297e">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Example-GPT-4o-mini-Outputs-(recorded-with-OPENAI_API_KEY-set)">Example GPT-4o-mini Outputs (recorded with OPENAI_API_KEY set)<a class="anchor-link" href="#Example-GPT-4o-mini-Outputs-(recorded-with-OPENAI_API_KEY-set)">¶</a></h3><p>When <code>OPENAI_API_KEY</code> is configured, the explainer produces outputs like:</p>
+<hr/>
+<p><strong>EXAMPLE 1 — DoS Attack (Neptune SYN Flood)</strong></p>
+<blockquote>
+<p><em>"This connection exhibits all hallmarks of a Neptune SYN flood attack: 511 connection attempts to the same HTTP service with a 100% SYN error rate and zero bytes transferred in either direction, indicating no TCP handshake was ever completed. The S0 flag (connection attempted, no reply from destination) combined with serror_rate=1.0 and count=511 are the primary red flags. The SOC analyst should immediately isolate the source IP, escalate to Tier 2, and apply a temporary inbound block rule on the perimeter firewall."</em></p>
+</blockquote>
+<hr/>
+<p><strong>EXAMPLE 2 — Normal HTTP Browsing</strong></p>
+<blockquote>
+<p><em>"This connection exhibits normal authenticated web browsing behaviour: a completed TCP handshake (SF flag), bidirectional byte transfer (232 → 8,153 bytes), a logged-in session, and low connection counts with no error signals whatsoever. No action is required — this is entirely consistent with routine user activity on an internal HTTP service."</em></p>
+</blockquote>
+<hr/>
+<p><strong>EXAMPLE 3 — Port Scan (Probe Attack)</strong></p>
+<blockquote>
+<p><em>"This connection pattern is consistent with a TCP port scan: 229 connections to the same host with only 15 to the same service (same_srv_rate=0.06), all rejected (REJ flag, rerror_rate=1.0), and zero bytes transferred — a reconnaissance signature. The attacker is mapping open ports on the target host. The SOC analyst should block the source IP, review firewall rules for private services, and check for follow-on exploitation attempts in the next 15 minutes."</em></p>
+</blockquote>
+<hr/>
+<p><strong>Setup:</strong> Copy <code>.env.example</code> to <code>.env</code> and set <code>OPENAI_API_KEY=sk-...</code></p>
+</div>
+</div>
+</div>
+</div>
 </main>
 </body>
 </html>

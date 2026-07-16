@@ -44,10 +44,10 @@ python train_and_save.py
 Expected output:
 ```
 [1/3] Loading NSL-KDD dataset...
-      Train: (125973, 42)  |  Test: (22544, 42)
+      Train: (125973, 45)  |  Test: (22544, 45)
 [2/3] Preprocessing...
-[3/3] Training XGBoost ...
-      Test F1=0.9930  AUC-ROC=0.9990
+[3/3] Training XGBoost (GridSearchCV, 3-fold CV)...
+      Test F1=0.776  AUC-ROC=0.967  (KDDTest+ held-out set)
 ✅  Training complete. Artifacts saved to models/
     Start the API with:  uvicorn src.app:app --port 8000
 ```
@@ -255,6 +255,84 @@ Place the recorded file at `reports/demo.gif` and link it in `README.md`:
 ```markdown
 ![Demo](reports/demo.gif)
 ```
+
+---
+
+## 10. Model Versioning & Rollback
+
+### Versioning Strategy
+Each training run produces a timestamped backup before overwriting:
+
+```bash
+# Snapshot current artefacts before retraining
+cp -r models/ models_backup_$(date +%Y%m%d_%H%M%S)/
+
+# Retrain with new data
+python train_and_save.py
+
+# Verify new model performance before promoting
+python -c "
+import joblib, numpy as np
+from sklearn.metrics import f1_score
+X = np.load('data/processed/X_test.npy')
+y = np.load('data/processed/y_test.npy')
+m = joblib.load('models/xgboost.pkl')
+print(f'New model F1: {f1_score(y, m.predict(X)):.4f}')
+"
+
+# Restart API to pick up new artefacts
+# (zero-downtime: start new process, then stop old one)
+uvicorn src.app:app --host 0.0.0.0 --port 8001 &  # new
+# kill old process on port 8000
+```
+
+### Rollback Procedure
+```bash
+# Restore previous model if new model degrades
+cp models_backup_YYYYMMDD_HHMMSS/xgboost.pkl models/xgboost.pkl
+cp models_backup_YYYYMMDD_HHMMSS/preprocessor.pkl models/preprocessor.pkl
+# Restart API
+```
+
+### Production Recommendation
+Use [DVC (Data Version Control)](https://dvc.org/) to version large binary artefacts with Git-compatible SHA tracking.
+
+---
+
+## 11. Monitoring Plan
+
+### Runtime Health
+| Check | Tool | Trigger |
+|-------|------|---------|
+| Liveness | `GET /health` → Prometheus blackbox | Alert if down > 1 min |
+| Latency | Uvicorn access logs | Alert if p99 > 500ms |
+| Error rate | HTTP 4xx/5xx rate | Alert if > 1% |
+
+### Model Performance Drift
+```python
+# Weekly batch job using Evidently AI
+from evidently.report import Report
+from evidently.metric_preset import DataDriftPreset
+
+report = Report(metrics=[DataDriftPreset()])
+report.run(reference_data=reference_df, current_data=production_df)
+report.save_html("reports/drift_report.html")
+# Trigger retraining if drift score > 0.1 on top-10 SHAP features
+```
+
+**Retraining trigger:** drift score > 0.10 on any of: `serror_rate`, `same_srv_rate`, `src_bytes`, `dst_bytes`, `flag_S0`, `logged_in`
+
+**Retraining schedule:** Quarterly minimum; immediately on drift alert.
+
+---
+
+## 12. CI/CD Pipeline
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push:
+1. **Lint** — flake8 on `src/` and `tests/` (syntax errors = fail; style = warn)
+2. **Train** — fast-mode `python train_and_save.py`
+3. **Test** — `pytest tests/` (37 unit + API tests)
+4. **Docker build** — validates the container image builds
 
 ---
 
