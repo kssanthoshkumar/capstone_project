@@ -1,6 +1,31 @@
-best_model: XGBoost
-random_seed: 42
+logistic_regression:
+  max_iter: 1000
+  C: 1.0
+  solver: lbfgs
+random_forest:
+  n_estimators: 200
+  random_state: 42
 xgboost:
-  learning_rate: 0.1
-  max_depth: 6
   n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.1
+  default_threshold: 0.5
+  tuned_threshold: 0.05
+  note: Use tuned_threshold for higher recall in IDS deployment
+lightgbm:
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.1
+isolation_forest:
+  n_estimators: 200
+  contamination: 0.4654171925730117
+autoencoder:
+  encoding_dim: 16
+  epochs: 30
+  batch_size: 256
+  note: Highest recall (0.960) - preferred for maximum attack detection
+best_model: XGBoost
+best_model_for_recall: Autoencoder
+deployment_recommendation: 'XGBoost (threshold=0.05): best precision+F1 balance for
+  API deployment. Autoencoder: best recall (0.960) for high-sensitivity IDS.'
+random_seed: 42
