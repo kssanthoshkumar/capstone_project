@@ -31,6 +31,8 @@ import seaborn as sns
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, confusion_matrix, classification_report,
@@ -168,12 +170,13 @@ def train_logistic_regression(
     save_dir: str = "models",
 ) -> LogisticRegression:
     logger.info("Training Logistic Regression …")
+    # Note: X_train is already StandardScaled by the preprocessor pipeline.
+    # No inner scaler needed here.
     model = LogisticRegression(
         max_iter=1000,
         C=1.0,
-        solver="lbfgs",
+        solver='lbfgs',
         random_state=42,
-        n_jobs=-1,
     )
     model.fit(X_train, y_train)
     _save_model(model, "logistic_regression.pkl", save_dir)
@@ -297,7 +300,6 @@ def train_isolation_forest(
 
 def train_autoencoder(
     X_train: np.ndarray,
-    X_val: np.ndarray,
     encoding_dim: int = 16,
     epochs: int = 30,
     batch_size: int = 256,
@@ -307,6 +309,9 @@ def train_autoencoder(
     Train a dense autoencoder for anomaly detection via reconstruction error.
     Uses scikit-learn MLPRegressor to avoid TensorFlow/GPU compatibility issues.
     The model is trained only on normal traffic (unsupervised).
+
+    Early stopping uses MLPRegressor's internal validation_fraction=0.05 —
+    no external X_val argument is required or used.
 
     Returns
     -------

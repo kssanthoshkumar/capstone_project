@@ -19,6 +19,9 @@ from sklearn.preprocessing import (
     MinMaxScaler,
 )
 from sklearn.impute import SimpleImputer
+from sklearn.base import BaseEstimator, TransformerMixin
+
+from feature_engineering import add_domain_features, bin_count_features
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,21 @@ NUMERIC_COLS = [
 ]
 
 DROP_COLS = ["label", "difficulty_level", "attack_category"]
+
+# Numeric features produced by add_domain_features()
+ENGINEERED_NUMERIC_COLS = [
+    "byte_ratio", "total_bytes", "log_src_bytes", "log_dst_bytes",
+    "log_duration", "error_rate_total", "srv_error_diff", "host_srv_ratio",
+    "is_long_connection", "is_big_transfer",
+]
+
+# Categorical (binned) features produced by bin_count_features()
+ENGINEERED_CATEGORICAL_COLS = [
+    "count_bin", "srv_count_bin", "dst_host_count_bin", "dst_host_srv_count_bin",
+]
+
+ALL_NUMERIC_COLS     = NUMERIC_COLS + ENGINEERED_NUMERIC_COLS
+ALL_CATEGORICAL_COLS = CATEGORICAL_COLS + ENGINEERED_CATEGORICAL_COLS
 
 
 def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
@@ -69,6 +87,48 @@ def cap_outliers_iqr(df: pd.DataFrame, cols: list[str], factor: float = 3.0) -> 
             df[col] = df[col].clip(lower=lower, upper=upper)
             logger.debug("Capped %d outliers in '%s'", clipped, col)
     return df
+
+
+class FeatureEngineer(BaseEstimator, TransformerMixin):
+    """Applies domain feature engineering as a sklearn-compatible transform.
+    Returns a DataFrame so the downstream ColumnTransformer can select columns
+    by name.  No parameters to fit — transform is stateless."""
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = add_domain_features(X)
+        X = bin_count_features(X)
+        return X
+
+
+class OutlierClipper(BaseEstimator, TransformerMixin):
+    """Learns IQR clip bounds from training data and applies the same bounds
+    at transform time — fixes the train/test preprocessing inconsistency where
+    test data was previously not clipped."""
+
+    def __init__(self, cols=None, factor: float = 3.0):
+        self.cols = cols
+        self.factor = factor
+
+    def fit(self, X, y=None):
+        df = X if isinstance(X, pd.DataFrame) else pd.DataFrame(X)
+        cols = self.cols if self.cols is not None else []
+        self.bounds_ = {}
+        for col in cols:
+            if col in df.columns:
+                q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+                iqr = q3 - q1
+                self.bounds_[col] = (q1 - self.factor * iqr, q3 + self.factor * iqr)
+        return self
+
+    def transform(self, X):
+        df = X.copy() if isinstance(X, pd.DataFrame) else pd.DataFrame(X).copy()
+        for col, (lower, upper) in self.bounds_.items():
+            if col in df.columns:
+                df[col] = df[col].clip(lower=lower, upper=upper)
+        return df
 
 
 def build_preprocessing_pipeline(scaler: str = "standard") -> ColumnTransformer:
@@ -104,9 +164,42 @@ def build_preprocessing_pipeline(scaler: str = "standard") -> ColumnTransformer:
     return preprocessor
 
 
-def get_feature_names(preprocessor: ColumnTransformer) -> list[str]:
-    """Extract feature names after fitting a ColumnTransformer."""
-    return list(preprocessor.get_feature_names_out())
+def build_full_pipeline(scaler: str = "standard") -> Pipeline:
+    """Return the complete end-to-end Pipeline used for training and inference:
+
+      1. FeatureEngineer   — add 14 domain features to the DataFrame
+      2. OutlierClipper    — fit IQR bounds on train; apply same bounds to test
+      3. ColumnTransformer — impute + scale numerics; impute + OHE categoricals
+
+    This is the only pipeline that should be fit and saved to disk.
+    """
+    scaler_obj = StandardScaler() if scaler == "standard" else MinMaxScaler()
+
+    column_transformer = ColumnTransformer(
+        transformers=[
+            ("num", Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler",  scaler_obj),
+            ]), ALL_NUMERIC_COLS),
+            ("cat", Pipeline([
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("ohe",     OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+            ]), ALL_CATEGORICAL_COLS),
+        ],
+        remainder="drop",
+        verbose_feature_names_out=False,
+    )
+    return Pipeline([
+        ("feature_engineering", FeatureEngineer()),
+        ("outlier_clipper",     OutlierClipper(cols=ALL_NUMERIC_COLS)),
+        ("column_transformer", column_transformer),
+    ])
+
+
+def get_feature_names(pipeline) -> list[str]:
+    """Extract feature names from a fitted Pipeline or ColumnTransformer."""
+    ct = pipeline[-1] if isinstance(pipeline, Pipeline) else pipeline
+    return list(ct.get_feature_names_out())
 
 
 def preprocess(
@@ -124,13 +217,12 @@ def preprocess(
     """
     train_df = remove_duplicates(train_df)
 
-    # Outlier capping on training set only (to avoid data leakage)
-    train_df = cap_outliers_iqr(train_df, NUMERIC_COLS)
-
+    # Feature engineering and outlier clipping are now handled inside
+    # build_full_pipeline so they apply consistently to train AND test.
     y_train = train_df["binary_label"].values
     y_test  = test_df["binary_label"].values
 
-    pipeline = build_preprocessing_pipeline(scaler=scaler)
+    pipeline = build_full_pipeline(scaler=scaler)
     X_train = pipeline.fit_transform(train_df)
     X_test  = pipeline.transform(test_df)
 

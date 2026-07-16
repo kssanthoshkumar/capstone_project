@@ -25,6 +25,7 @@ from typing import Optional
 import numpy as np
 import joblib
 import uvicorn
+import yaml
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
@@ -46,6 +47,16 @@ except FileNotFoundError as exc:
     logger.error("Model artifacts not found: %s. Run the training pipeline first.", exc)
     preprocessor = None
     model        = None
+
+# Load the decision threshold tuned during training (default 0.5 if missing)
+try:
+    with open(MODEL_DIR / "configs.yaml") as _f:
+        _cfg = yaml.safe_load(_f)
+    DECISION_THRESHOLD = float(_cfg.get("xgb_threshold", 0.5))
+    logger.info("Decision threshold loaded: %.2f", DECISION_THRESHOLD)
+except Exception:
+    DECISION_THRESHOLD = 0.5
+    logger.warning("Could not load xgb_threshold from configs.yaml; using default 0.5")
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +156,7 @@ def predict(
     X  = preprocessor.transform(df)
 
     prob  = float(model.predict_proba(X)[0, 1])
-    pred  = int(prob >= 0.5)
+    pred  = int(prob >= DECISION_THRESHOLD)
     return PredictionResponse(
         prediction=pred,
         label="attack" if pred == 1 else "normal",
@@ -164,7 +175,7 @@ def predict_batch(
     df    = _record_to_df(batch.records)
     X     = preprocessor.transform(df)
     probs = model.predict_proba(X)[:, 1]
-    preds = (probs >= 0.5).astype(int)
+    preds = (probs >= DECISION_THRESHOLD).astype(int)
 
     results = [
         PredictionResponse(
