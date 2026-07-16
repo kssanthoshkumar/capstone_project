@@ -1,0 +1,20 @@
+{
+  "domain": "Cybersecurity",
+  "problem": "Network Traffic Anomaly Detection",
+  "task_type": "Binary Classification + Unsupervised Anomaly Detection",
+  "dataset": "NSL-KDD",
+  "primary_metric": "F1-Score",
+  "target_f1": 0.97,
+  "target_auc": 0.99,
+  "target_fpr": 0.02,
+  "binary_classes": {
+    "0": "normal",
+    "1": "attack"
+  },
+  "attack_categories": [
+    "dos",
+    "probe",
+    "r2l",
+    "u2r"
+  ]
+}

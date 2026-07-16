@@ -1,0 +1,30 @@
+feature,type,unit,range,security_meaning
+duration,numeric,seconds,0–58329,Connection length — long durations may indicate tunnelling
+protocol_type,categorical,N/A,tcp/udp/icmp,Network protocol — ICMP often used in ping floods
+service,categorical,N/A,70 values,Destination service — unusual services flag recon/exploits
+flag,categorical,N/A,11 values,TCP status — S0 (no reply) and REJ are strong attack signals
+src_bytes,numeric,bytes,0–1.38B,Data sent — zero bytes typical in SYN floods
+dst_bytes,numeric,bytes,0–1.31B,Data received — extreme values indicate exfiltration
+land,binary,flag (0/1),"0,1",Source = destination — spoof attack indicator
+wrong_fragment,numeric,count,0–3,Malformed packets — may indicate evasion
+urgent,numeric,count,0–14,Urgent packets — rarely legitimate
+hot,numeric,count,0–101,Hot indicators — privilege abuse counter
+num_failed_logins,numeric,count,0–5,Failed logins — brute-force indicator
+logged_in,binary,flag (0/1),"0,1",Authenticated session — normal traffic predictor
+num_compromised,numeric,count,0–7479,Compromised conditions — R2L/U2R severity
+root_shell,binary,flag (0/1),"0,1",Root shell obtained — U2R critical indicator
+su_attempted,binary,flag (0/1),"0,1",su root attempted — privilege escalation
+count,numeric,connections/2s,0–511,Same-host connections — scan/flood detector
+srv_count,numeric,connections/2s,0–511,Same-service connections — service scan indicator
+serror_rate,numeric,ratio (0–1),0.0–1.0,SYN error rate — primary SYN flood / DoS indicator
+rerror_rate,numeric,ratio (0–1),0.0–1.0,REJ error rate — firewall-blocked connection indicator
+same_srv_rate,numeric,ratio (0–1),0.0–1.0,Same-service ratio — low = port scan
+diff_srv_rate,numeric,ratio (0–1),0.0–1.0,Different-service ratio — high = service scan
+srv_diff_host_rate,numeric,ratio (0–1),0.0–1.0,Different-host ratio — horizontal scan
+dst_host_count,numeric,connections,0–255,Host connection count — host-level scan density
+dst_host_srv_count,numeric,connections,0–255,Host-service count — targeted service scan
+dst_host_same_srv_rate,numeric,ratio (0–1),0.0–1.0,Host same-service rate — service concentration
+dst_host_serror_rate,numeric,ratio (0–1),0.0–1.0,Host SYN error accumulation — persistent DoS
+dst_host_rerror_rate,numeric,ratio (0–1),0.0–1.0,Host REJ error rate — blocked connection history
+label,categorical,N/A,normal/neptune/…,Original 39-class attack label (KDDTrain+)
+binary_label,binary,flag (0/1),"0=normal,1=attack",Derived target variable for binary classification
