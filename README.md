@@ -9,12 +9,13 @@
 ## Table of Contents
 1. [Problem Statement](#problem-statement)
 2. [Dataset](#dataset)
-3. [Project Structure](#project-structure)
-4. [Setup & Reproducibility](#setup--reproducibility)
-5. [Key Results](#key-results)
-6. [Ethical AI & Bias Audit](#ethical-ai--bias-audit)
-7. [Deployment](#deployment)
-8. [Generative AI Usage](#generative-ai-usage)
+3. [Architecture](#architecture)
+4. [Project Structure](#project-structure)
+5. [Setup & Reproducibility](#setup--reproducibility)
+6. [Key Results](#key-results)
+7. [Ethical AI & Bias Audit](#ethical-ai--bias-audit)
+8. [Deployment](#deployment)
+9. [Generative AI Usage](#generative-ai-usage)
 
 ---
 
@@ -26,6 +27,62 @@ Modern enterprise networks generate millions of connection events per day. A sin
 - **Rows:** ~125,973 training / ~22,544 test
 - **Features:** 41 features (network connection attributes)
 - **Target:** Binary (Normal vs. Attack) + multi-class attack categories
+
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph DATA["📦 Data Layer"]
+        A[("NSL-KDD Dataset\nKDDTrain+.txt\nKDDTest+.txt")]
+        B["data_loader.py\nAuto-download & parse"]
+        C["preprocessor.py\nDuplicate removal\nOutlier capping IQR\nStandard scaling\nOne-hot encoding"]
+        D["feature_engineering.py\nDerived features\nPCA / UMAP"]
+        A --> B --> C --> D
+    end
+
+    subgraph MODELS["🤖 Model Layer"]
+        E["Supervised\n─────────────\nLogistic Regression\nRandom Forest\nXGBoost ⭐ best"]
+        F["Unsupervised\n─────────────\nIsolation Forest\nAutoencoder"]
+        D --> E
+        D --> F
+    end
+
+    subgraph EXPLAIN["🔍 Explainability & Fairness"]
+        G["explainability.py\nSHAP values\nLIME local explanations"]
+        H["bias_audit.py\nSubgroup fairness\nProtocol / service slices"]
+        E --> G
+        E --> H
+    end
+
+    subgraph PERSIST["💾 Artifacts"]
+        I[("models/\nxgboost.pkl\npreprocessor.pkl\nconfigs.yaml")]
+        E --> I
+        C --> I
+    end
+
+    subgraph API["🌐 API Layer — FastAPI :8000"]
+        J["GET /health\nLiveness check"]
+        K["POST /predict\nSingle record"]
+        L["POST /predict/batch\nUp to 1000 records"]
+        I --> J & K & L
+    end
+
+    subgraph UI["🖥️ UI Layer — Streamlit :8501"]
+        M["Preset scenarios\n• Normal HTTP\n• Port Scan\n• DoS Neptune"]
+        N["41-feature form\nwith sliders"]
+        O["Result panel\nLabel · Probability\nConfidence bar"]
+        M --> N --> O
+        I --> O
+    end
+
+    subgraph TESTS["🧪 Test Suite — pytest"]
+        P["test_api.py\n20 API tests"]
+        Q["test_preprocessor.py\n17 unit tests"]
+    end
+
+    K <-->|"JSON"| N
+    API -.->|"validates"| TESTS
+```
 
 ## Project Structure
 ```
@@ -84,13 +141,15 @@ jupyter lab
 
 | Model | Accuracy | Precision | Recall | F1-Score | AUC-ROC |
 |---|---|---|---|---|---|
-| Logistic Regression (baseline) | 92.1% | 0.91 | 0.93 | 0.92 | 0.967 |
-| Random Forest | 99.1% | 0.99 | 0.99 | 0.99 | 0.999 |
-| XGBoost | 99.3% | 0.99 | 0.99 | 0.99 | 0.999 |
-| Isolation Forest (unsupervised) | 87.4% | 0.85 | 0.91 | 0.88 | 0.942 |
-| Autoencoder (reconstruction error) | 90.2% | 0.88 | 0.93 | 0.90 | 0.961 |
+| Logistic Regression (baseline) | 65.6% | 0.73 | 0.62 | 0.67 | 0.654 |
+| Random Forest | 76.3% | 0.97 | 0.60 | 0.74 | 0.953 |
+| XGBoost | 78.7% | 0.97 | 0.65 | 0.78 | 0.967 |
+| Isolation Forest (unsupervised) | 70.1% | 0.75 | 0.72 | 0.73 | 0.779 |
+| Autoencoder (reconstruction error) | 78.6% | 0.74 | 0.96 | 0.84 | 0.817 |
 
-**Best Model:** XGBoost with hyperparameter tuning (GridSearchCV)
+**Deployment choice — XGBoost** (highest precision 96.7%, AUC 0.967) deployed in the FastAPI endpoint. **Autoencoder** achieves the best recall (96.0%) and F1 (0.836) — preferred when minimising missed attacks is the priority.
+
+**Best Model:** XGBoost — highest precision (96.7%) and AUC-ROC (0.967); Autoencoder leads on F1 (0.836) and recall (0.960)
 
 ## Ethical AI & Bias Audit
 - SHAP values used for global and local explainability
@@ -102,12 +161,16 @@ jupyter lab
 - FastAPI REST endpoint served locally on port 8000
 - `/predict` endpoint accepts 41-feature JSON payload
 - `/health` endpoint for liveness check
+- Streamlit UI: `streamlit run src/ui.py` (port 8501)
+- **Full deployment guide:** see [DEPLOYMENT.md](DEPLOYMENT.md) (installation, curl examples, retraining, MLOps practices)
 - See `notebooks/06_deployment_demo.ipynb` for demo
 
 ## Generative AI Usage
 - GitHub Copilot used for boilerplate code generation and docstring suggestions
 - GPT-4 used to generate EDA summaries and data dictionary descriptions
+- **GPT-4o-mini** integrated as a live AI Analyst Explainer in the Streamlit UI (`src/genai_explainer.py`) — generates plain-English SOC analyst explanations for each prediction
 - All AI-generated content reviewed, validated, and modified by the author
+- See `.env.example` for API key setup; feature degrades gracefully if key is absent
 - Details in `reports/capstone_report.md → Section 9: GenAI Usage`
 
 ---

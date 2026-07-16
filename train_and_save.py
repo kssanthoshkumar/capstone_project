@@ -36,9 +36,9 @@ def main():
     )
     print(f"      X_train: {X_train.shape}  X_test: {X_test.shape}")
 
-    # Step 3: Train XGBoost (no GridSearchCV for speed; tune=False)
-    print("\n[3/3] Training XGBoost (fast mode, no GridSearchCV)...")
-    model = train_xgboost(X_train, y_train, tune=False, save_dir="models")
+    # Step 3: Train XGBoost with GridSearchCV (tune=True for full performance)
+    print("\n[3/3] Training XGBoost (GridSearchCV, 3-fold CV — this takes a few minutes)...")
+    model = train_xgboost(X_train, y_train, tune=True, save_dir="models")
 
     # Quick evaluation
     from sklearn.metrics import f1_score, roc_auc_score
