@@ -16,16 +16,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# Copy source and artefacts
+# Copy source and training script
 COPY src/ ./src/
-COPY models/preprocessor.pkl models/xgboost.pkl models/configs.yaml ./models/
+COPY models/configs.yaml ./models/
 COPY train_and_save.py .
 
-# If model artefacts are absent at build time, train inside the container
-# (requires data/raw/ to be mounted or auto-downloaded)
-RUN python -c "import os; \
-    missing = not (os.path.exists('models/xgboost.pkl') and os.path.exists('models/preprocessor.pkl')); \
-    print('Models present.' if not missing else 'WARNING: model files missing — mount or run train_and_save.py')"
+# Train the model inside the container (auto-downloads NSL-KDD data)
+# This makes the image self-contained — no pre-built pkl files required.
+RUN python train_and_save.py
 
 # Expose API port
 EXPOSE 8000
