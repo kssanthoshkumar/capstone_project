@@ -16,17 +16,19 @@ env/
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
-# Data (large files)
+# Data (large files — download via data_loader.py auto_download=True)
 data/raw/*.txt
 data/raw/*.csv
 data/processed/*.npy
 
-# Models (large binaries — tracked separately or via DVC)
+# Models (large binary artefacts — regenerate via train_and_save.py)
 models/*.pkl
 models/*.keras
 
-# Keep placeholder files
+# Keep placeholder and config files
 !models/.gitkeep
+!models/configs.yaml
+!models/autoencoder_threshold.json
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
@@ -42,3 +44,7 @@ Thumbs.db
 .env
 *.key
 *.pem
+
+# Temporary / cache
+*.tmp
+*.bak
