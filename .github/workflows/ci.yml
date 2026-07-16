@@ -42,6 +42,34 @@ jobs:
       - name: Train model (fast mode for CI)
         run: python train_and_save.py
 
+      - name: Print model performance summary
+        run: |
+          python3 -c "
+          import numpy as np, joblib
+          from sklearn.metrics import f1_score, roc_auc_score, precision_score, recall_score
+          X = np.load('data/processed/X_test.npy')
+          y = np.load('data/processed/y_test.npy')
+          m = joblib.load('models/xgboost.pkl')
+          yp = m.predict(X)
+          ya = m.predict_proba(X)[:,1]
+          f1  = f1_score(y, yp)
+          auc = roc_auc_score(y, ya)
+          prec = precision_score(y, yp)
+          rec  = recall_score(y, yp)
+          summary = f'''## ✅ CI Model Performance (KDDTest+)
+          | Metric | Value |
+          |--------|-------|
+          | F1-Score | {f1:.4f} |
+          | AUC-ROC | {auc:.4f} |
+          | Precision | {prec:.4f} |
+          | Recall | {rec:.4f} |
+          '''
+          import os
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write(summary)
+          print(f'F1={f1:.4f}  AUC={auc:.4f}  Precision={prec:.4f}  Recall={rec:.4f}')
+          "
+
       - name: Run unit tests
         run: pytest tests/ -v --tb=short
 
