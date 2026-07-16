@@ -292,7 +292,7 @@ def train_isolation_forest(
 
 
 # ---------------------------------------------------------------------------
-# Model 5: Autoencoder (Keras)
+# Model 5: Autoencoder (scikit-learn MLPRegressor — no TensorFlow required)
 # ---------------------------------------------------------------------------
 
 def train_autoencoder(
@@ -305,53 +305,38 @@ def train_autoencoder(
 ):
     """
     Train a dense autoencoder for anomaly detection via reconstruction error.
+    Uses scikit-learn MLPRegressor to avoid TensorFlow/GPU compatibility issues.
     The model is trained only on normal traffic (unsupervised).
 
     Returns
     -------
     autoencoder, threshold (95th-percentile reconstruction error on normal train data)
     """
-    import tensorflow as tf
-    from tensorflow import keras
-    from tensorflow.keras import layers
+    from sklearn.neural_network import MLPRegressor
 
-    tf.random.set_seed(42)
-    n_features = X_train.shape[1]
-
-    # Architecture: n_features → 64 → 32 → encoding_dim → 32 → 64 → n_features
-    inputs   = keras.Input(shape=(n_features,))
-    encoded  = layers.Dense(64, activation="relu")(inputs)
-    encoded  = layers.Dense(32, activation="relu")(encoded)
-    bottleneck = layers.Dense(encoding_dim, activation="relu")(encoded)
-    decoded  = layers.Dense(32, activation="relu")(bottleneck)
-    decoded  = layers.Dense(64, activation="relu")(decoded)
-    outputs  = layers.Dense(n_features, activation="linear")(decoded)
-
-    autoencoder = keras.Model(inputs, outputs, name="autoencoder")
-    autoencoder.compile(optimizer="adam", loss="mse")
-
-    early_stop = keras.callbacks.EarlyStopping(
-        monitor="val_loss", patience=5, restore_best_weights=True
-    )
-
-    logger.info("Training Autoencoder for up to %d epochs …", epochs)
-    autoencoder.fit(
-        X_train, X_train,
-        validation_data=(X_val, X_val),
-        epochs=epochs,
+    logger.info("Training Autoencoder (sklearn MLPRegressor) …")
+    autoencoder = MLPRegressor(
+        hidden_layer_sizes=(64, 32, encoding_dim, 32, 64),
+        activation="relu",
+        solver="adam",
+        max_iter=epochs,
         batch_size=batch_size,
-        callbacks=[early_stop],
-        verbose=1,
+        random_state=42,
+        verbose=False,
+        early_stopping=True,
+        validation_fraction=0.05,
+        n_iter_no_change=5,
     )
+    autoencoder.fit(X_train, X_train)
 
     # Compute reconstruction error threshold on training normal samples
-    reconstructions = autoencoder.predict(X_train, verbose=0)
+    reconstructions = autoencoder.predict(X_train)
     mse = np.mean(np.square(reconstructions - X_train), axis=1)
     threshold = float(np.percentile(mse, 95))
     logger.info("Autoencoder reconstruction threshold (95th pctile): %.6f", threshold)
 
     Path(save_dir).mkdir(parents=True, exist_ok=True)
-    autoencoder.save(Path(save_dir) / "autoencoder.keras")
+    joblib.dump(autoencoder, Path(save_dir) / "autoencoder.pkl")
     with open(Path(save_dir) / "autoencoder_threshold.json", "w") as f:
         json.dump({"threshold": threshold}, f)
 
@@ -367,7 +352,7 @@ def autoencoder_predict(
     Returns (y_pred_binary, reconstruction_errors).
     y_pred = 1 (attack) if reconstruction error > threshold.
     """
-    reconstructions = autoencoder.predict(X, verbose=0)
+    reconstructions = autoencoder.predict(X)
     mse = np.mean(np.square(reconstructions - X), axis=1)
     y_pred = (mse > threshold).astype(int)
     return y_pred, mse

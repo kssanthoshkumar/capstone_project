@@ -7,6 +7,7 @@ Run with:
     streamlit run src/ui.py
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,9 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()  # load OPENAI_API_KEY from .env if present
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -252,3 +256,20 @@ if submitted:
         st.metric("Model Confidence", f"{confidence:.2%}")
 
     st.progress(prob, text=f"Attack probability: {prob:.2%}")
+
+    # ------------------------------------------------------------------
+    # GenAI Analyst Explanation (Step 9)
+    # ------------------------------------------------------------------
+    st.divider()
+    with st.expander("🤖 AI Analyst Explanation", expanded=pred == 1):
+        if os.environ.get("OPENAI_API_KEY"):
+            with st.spinner("Generating analyst explanation..."):
+                sys.path.insert(0, str(Path(__file__).parent))
+                from genai_explainer import explain_prediction
+                explanation = explain_prediction(label, prob, record)
+            st.info(explanation)
+        else:
+            st.warning(
+                "Set `OPENAI_API_KEY` in your `.env` file to enable AI-generated "
+                "analyst explanations. See `.env.example` for setup instructions."
+            )
