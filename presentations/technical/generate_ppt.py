@@ -579,48 +579,54 @@ def slide_deployment(prs):
                 Inches(0.4), Inches(0.5), Inches(12), Inches(0.65),
                 font_size=28, bold=True, color=WHITE)
 
-    # Architecture diagram (text)
-    arch_lines = [
-        ("Client Request", LIGHT_GREY),
-        ("POST /predict  →  FastAPI  (app.py)", WHITE),
-        ("Pydantic validation  (41 features, range checks)", LIGHT_GREY),
-        ("X-From header enforcement  (traceability)", LIGHT_GREY),
-        ("preprocessor.pkl  →  ColumnTransformer", LIGHT_GREY),
-        ("xgboost.pkl  →  predict_proba()", LIGHT_GREY),
-        ("Response:  { prediction, label, probability }", GOLD),
-    ]
-    add_rect(slide, Inches(0.4), Inches(1.35), Inches(7.0), Inches(4.5), CODE_BG)
-    for i, (line, color) in enumerate(arch_lines):
-        prefix = "  │  " if 1 < i < 6 else ("  └─ " if i == 6 else "")
-        add_textbox(slide, prefix + line,
-                    Inches(0.5), Inches(1.45) + i * Inches(0.55),
-                    Inches(6.8), Inches(0.5),
-                    font_size=13, color=color)
+    # Architecture diagram — use the PNG if it exists, fallback to text
+    arch_img = Path(__file__).parent.parent / "architecture_diagram.png"
+    if arch_img.exists():
+        # Image aspect ratio ≈ 20:12; fit into left 7.8" × 4.7"
+        slide.shapes.add_picture(
+            str(arch_img),
+            Inches(0.3), Inches(1.3),
+            Inches(7.8), Inches(4.68),
+        )
+    else:
+        # Fallback: text representation
+        arch_lines = [
+            ("Client Request", LIGHT_GREY),
+            ("POST /predict  →  FastAPI  (app.py)", WHITE),
+            ("Pydantic validation  (41 features, range checks)", LIGHT_GREY),
+            ("preprocessor.pkl  →  ColumnTransformer", LIGHT_GREY),
+            ("xgboost.pkl  →  predict_proba()", LIGHT_GREY),
+            ("Response:  { prediction, label, probability }", GOLD),
+        ]
+        add_rect(slide, Inches(0.4), Inches(1.35), Inches(7.0), Inches(4.5), CODE_BG)
+        for i, (line, color) in enumerate(arch_lines):
+            add_textbox(slide, line, Inches(0.5), Inches(1.45) + i * Inches(0.6),
+                        Inches(6.8), Inches(0.5), font_size=13, color=color)
 
-    # Summary bullets
+    # Summary bullets (right side)
     summary = [
         ("F1=0.776 XGB  |  F1=0.836 AE", "All models evaluated on KDDTest+"),
-        ("SHAP Explainability", "Domain-meaningful features confirmed"),
-        ("Bias Audit", "No significant bias across subgroups"),
-        ("FastAPI Deployment", "Input validation + X-From enforcement"),
+        ("SHAP + LIME + PDP + ICE", "Domain-meaningful features confirmed"),
+        ("Bias Audit (DIR=0.21)", "Protocol-level disparate impact explained"),
+        ("FastAPI + Streamlit", "Input validation + X-From traceability"),
         ("Full Reproducibility", "Saved models, configs & notebooks"),
     ]
     add_textbox(slide, "Summary",
-                Inches(7.6), Inches(1.35), Inches(5.5), Inches(0.42),
+                Inches(8.3), Inches(1.35), Inches(4.8), Inches(0.42),
                 font_size=16, bold=True, color=TEAL)
     for i, (title, detail) in enumerate(summary):
-        y = Inches(1.85) + i * Inches(0.83)
-        add_rect(slide, Inches(7.6), y, Inches(5.5), Inches(0.75), ACCENT)
-        add_textbox(slide, title, Inches(7.7), y + Inches(0.03),
-                    Inches(5.3), Inches(0.38), font_size=13, bold=True, color=GOLD)
-        add_textbox(slide, detail, Inches(7.7), y + Inches(0.38),
-                    Inches(5.3), Inches(0.33), font_size=12, color=LIGHT_GREY)
+        y = Inches(1.85) + i * Inches(0.88)
+        add_rect(slide, Inches(8.3), y, Inches(4.8), Inches(0.78), ACCENT)
+        add_textbox(slide, title, Inches(8.4), y + Inches(0.03),
+                    Inches(4.6), Inches(0.38), font_size=12, bold=True, color=GOLD)
+        add_textbox(slide, detail, Inches(8.4), y + Inches(0.4),
+                    Inches(4.6), Inches(0.33), font_size=11, color=LIGHT_GREY)
 
-    add_rect(slide, Inches(0.4), Inches(6.1), Inches(12.5), Inches(0.55), HIGHLIGHT)
+    add_rect(slide, Inches(0.4), Inches(6.75), Inches(12.5), Inches(0.48), HIGHLIGHT)
     add_textbox(slide,
                 "Technical Presentation  |  Capstone Project  |  AI/ML Fundamentals",
-                Inches(0.5), Inches(6.15), Inches(12.2), Inches(0.42),
-                font_size=12, color=WHITE, align=PP_ALIGN.CENTER, italic=True)
+                Inches(0.5), Inches(6.78), Inches(12.2), Inches(0.38),
+                font_size=11, color=WHITE, align=PP_ALIGN.CENTER, italic=True)
 
 
 # ---------------------------------------------------------------------------
