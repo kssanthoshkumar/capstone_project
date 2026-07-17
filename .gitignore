@@ -45,6 +45,11 @@ Thumbs.db
 *.key
 *.pem
 
+# Generator scripts (internal tooling, not needed for reproducibility)
+presentations/**/generate_ppt.py
+generate_architecture_diagram.py
+reports/generate_docx.py
+
 # Temporary / cache
 *.tmp
 *.bak
