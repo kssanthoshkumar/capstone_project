@@ -2,6 +2,18 @@
 conftest.py — shared fixtures for all tests.
 """
 
+import sys
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Put src/ on sys.path so that:
+#   1. Bare imports inside src/ (e.g. `from feature_engineering import ...`)
+#      resolve correctly when tests import via `from src.module import ...`
+#   2. Pickled objects whose class paths were saved as `preprocessor.ClassName`
+#      (bare module, not `src.preprocessor`) can be deserialized by joblib.
+# ---------------------------------------------------------------------------
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
 import pytest
 
 
