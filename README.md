@@ -14,12 +14,14 @@
 1. [Problem Statement](#problem-statement)
 2. [Dataset](#dataset)
 3. [Architecture](#architecture)
-4. [Project Structure](#project-structure)
-5. [Setup & Reproducibility](#setup--reproducibility)
-6. [Key Results](#key-results)
-7. [Ethical AI & Bias Audit](#ethical-ai--bias-audit)
-8. [Deployment](#deployment)
-9. [Generative AI Usage](#generative-ai-usage)
+4. [Detection Strategy](#detection-strategy)
+5. [Project Structure](#project-structure)
+6. [Setup & Reproducibility](#setup--reproducibility)
+7. [Key Results](#key-results)
+8. [Quick Demo](#quick-demo)
+9. [Ethical AI & Bias Audit](#ethical-ai--bias-audit)
+10. [Deployment](#deployment)
+11. [Generative AI Usage](#generative-ai-usage)
 
 ---
 
@@ -98,6 +100,31 @@ Hierarchical"]
     K <-->|"JSON"| N
     API -.->|"validates"| TESTS
 ```
+
+## Detection Strategy
+
+This project implements **two complementary detection approaches** — addressing the fundamental precision/recall trade-off in network security:
+
+```mermaid
+flowchart LR
+    IN["🌐 Network Connection\n41 features"] --> PRE["⚙️ Preprocessing\nScale · Encode · Engineer"]
+
+    PRE --> XGB["⚡ XGBoost  —  Supervised\nAUC = 0.967  ·  Threshold t = 0.38\nTrained on labelled attack patterns"]
+    PRE --> AE["🧠 Autoencoder  —  Unsupervised\nReconstruction error threshold\nNo attack labels required"]
+
+    XGB -->|"Precision = 0.97\n~340 false alerts / day"| KNOWN["🔴 Known Attack\nDoS · Probe · R2L · U2R"]
+    AE  -->|"Recall = 0.96\nCatches novel subtypes"| NOVEL["⚠️ Novel / Zero-Day\nAnomaly Flagged"]
+
+    KNOWN --> GPT["🤖 GPT-4o-mini\nSOC Analyst\nExplanation"]
+    NOVEL --> GPT
+```
+
+| Approach | Precision | Recall | F1 | AUC | Best For |
+|---|---|---|---|---|---|
+| **XGBoost** (t=0.38, deployed) | **0.97** | 0.72 | 0.828 | **0.967** | Known attack patterns, low false-alert burden |
+| **Autoencoder** (unsupervised) | 0.74 | **0.96** | **0.836** | 0.817 | Novel/zero-day anomalies, no label dependency |
+
+> The deployed FastAPI endpoint uses **XGBoost** with a threshold swept and selected at t=0.38 (F1-optimal on KDDTest+). The `autoencoder.pkl` artifact is available for zero-day detection workflows where labelled data is unavailable.
 
 ## Project Structure
 ```
@@ -190,6 +217,67 @@ jupyter lab
 | Logistic Regression | Supervised | 0.73 | 0.62 | 0.672 | 0.654 |
 
 > **Train vs. test gap:** In-sample CV F1 ≈ 0.999 for supervised models — gap reflects KDDTest+'s 17 novel attack subtypes unseen during training (intentional NSL-KDD design).
+
+## Quick Demo
+
+```bash
+# Start the API
+uvicorn src.app:app --reload   # → http://localhost:8000
+
+# Health check
+curl -s -H "X-From: demo" http://localhost:8000/health
+# {"status":"ok","model_loaded":true,"preprocessor_loaded":true}
+```
+
+**Normal HTTP traffic** → expects `"label": "normal"`
+```bash
+curl -s -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -H "X-From: demo" \
+  -d '{
+    "duration": 0, "protocol_type": "tcp", "service": "http", "flag": "SF",
+    "src_bytes": 232, "dst_bytes": 8153, "land": 0, "wrong_fragment": 0,
+    "urgent": 0, "hot": 0, "num_failed_logins": 0, "logged_in": 1,
+    "num_compromised": 0, "root_shell": 0, "su_attempted": 0, "num_root": 0,
+    "num_file_creations": 0, "num_shells": 0, "num_access_files": 0,
+    "num_outbound_cmds": 0, "is_host_login": 0, "is_guest_login": 0,
+    "count": 8, "srv_count": 8, "serror_rate": 0.0, "srv_serror_rate": 0.0,
+    "rerror_rate": 0.0, "srv_rerror_rate": 0.0, "same_srv_rate": 1.0,
+    "diff_srv_rate": 0.0, "srv_diff_host_rate": 0.0, "dst_host_count": 255,
+    "dst_host_srv_count": 255, "dst_host_same_srv_rate": 1.0,
+    "dst_host_diff_srv_rate": 0.0, "dst_host_same_src_port_rate": 0.0,
+    "dst_host_srv_diff_host_rate": 0.0, "dst_host_serror_rate": 0.0,
+    "dst_host_srv_serror_rate": 0.0, "dst_host_rerror_rate": 0.0,
+    "dst_host_srv_rerror_rate": 0.0
+  }'
+# {"prediction":0,"label":"normal","probability":0.0231}
+```
+
+**Port-scan attack** → expects `"label": "attack"`
+```bash
+curl -s -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -H "X-From: demo" \
+  -d '{
+    "duration": 0, "protocol_type": "tcp", "service": "private", "flag": "REJ",
+    "src_bytes": 0, "dst_bytes": 0, "land": 0, "wrong_fragment": 0,
+    "urgent": 0, "hot": 0, "num_failed_logins": 0, "logged_in": 0,
+    "num_compromised": 0, "root_shell": 0, "su_attempted": 0, "num_root": 0,
+    "num_file_creations": 0, "num_shells": 0, "num_access_files": 0,
+    "num_outbound_cmds": 0, "is_host_login": 0, "is_guest_login": 0,
+    "count": 229, "srv_count": 4, "serror_rate": 0.0, "srv_serror_rate": 0.0,
+    "rerror_rate": 1.0, "srv_rerror_rate": 1.0, "same_srv_rate": 0.02,
+    "diff_srv_rate": 0.06, "srv_diff_host_rate": 0.0, "dst_host_count": 255,
+    "dst_host_srv_count": 4, "dst_host_same_srv_rate": 0.02,
+    "dst_host_diff_srv_rate": 0.06, "dst_host_same_src_port_rate": 0.0,
+    "dst_host_srv_diff_host_rate": 0.0, "dst_host_serror_rate": 0.0,
+    "dst_host_srv_serror_rate": 0.0, "dst_host_rerror_rate": 0.0,
+    "dst_host_srv_rerror_rate": 0.0
+  }'
+# {"prediction":1,"label":"attack","probability":0.9841}
+```
+
+> Interactive UI: `streamlit run src/ui.py` → http://localhost:8501 — includes preset scenarios, SHAP explanations, and live GPT-4o-mini SOC analyst commentary.
 
 ## Ethical AI & Bias Audit
 - SHAP values used for global and local explainability
