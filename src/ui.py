@@ -262,7 +262,7 @@ if submitted:
     # ------------------------------------------------------------------
     st.divider()
     with st.expander("🤖 AI Analyst Explanation", expanded=pred == 1):
-        if os.environ.get("OPENAI_API_KEY"):
+        if os.environ.get("LOCAL_LLM_URL") or os.environ.get("OPENAI_API_KEY"):
             with st.spinner("Generating analyst explanation..."):
                 sys.path.insert(0, str(Path(__file__).parent))
                 from genai_explainer import explain_prediction
@@ -270,6 +270,6 @@ if submitted:
             st.info(explanation)
         else:
             st.warning(
-                "Set `OPENAI_API_KEY` in your `.env` file to enable AI-generated "
-                "analyst explanations. See `.env.example` for setup instructions."
+                "No LLM backend configured. Set `LOCAL_LLM_URL` (llama.cpp / LM Studio / Ollama) "
+                "or `OPENAI_API_KEY` in your `.env` file. See `.env.example` for setup instructions."
             )

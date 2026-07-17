@@ -62,17 +62,25 @@ def explain_prediction(
         A 2–3 sentence natural-language explanation, or a graceful fallback
         message when ``OPENAI_API_KEY`` is not set.
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
+    local_url   = os.environ.get("LOCAL_LLM_URL")
+    local_model = os.environ.get("LOCAL_LLM_MODEL", "llama3.2")
+    openai_key  = os.environ.get("OPENAI_API_KEY")
+
+    if not local_url and not openai_key:
         return (
-            "AI explanation unavailable — set the OPENAI_API_KEY environment "
-            "variable to enable this feature.  See .env.example for instructions."
+            "AI explanation unavailable — set LOCAL_LLM_URL (Ollama/LM Studio) "
+            "or OPENAI_API_KEY in your .env file.  See .env.example for instructions."
         )
 
     try:
         from openai import OpenAI  # imported lazily so the module loads without openai installed
 
-        client = OpenAI(api_key=api_key)
+        if local_url:
+            # Local LLM server (Ollama, LM Studio, llama.cpp) — OpenAI-compatible API
+            client     = OpenAI(base_url=local_url, api_key="local")
+            model_name = local_model
+        else:
+            client = OpenAI(api_key=openai_key)
 
         feature_lines = "\n".join(
             f"  {k}: {features[k]}"

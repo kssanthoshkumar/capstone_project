@@ -146,14 +146,36 @@ Opens at `http://localhost:8501`.
 
 ## 5. GenAI Analyst Explanations (Optional)
 
-Copy `.env.example` to `.env` and add your OpenAI API key:
+Two backends are supported — no OpenAI account required if you run a local LLM.
+
+### Option A: Local LLM (Ollama — free, runs offline)
+
+```bash
+# 1. Install Ollama: https://ollama.com
+brew install ollama          # macOS
+
+# 2. Pull a model (llama3.2 is fast and fits in 8 GB RAM)
+ollama pull llama3.2
+
+# 3. Start the server (OpenAI-compatible API on port 11434)
+ollama serve
+
+# 4. Configure .env
+cp .env.example .env
+# Set: LOCAL_LLM_URL=http://localhost:11434/v1
+#      LOCAL_LLM_MODEL=llama3.2
+```
+
+Other local servers (LM Studio, llama.cpp) work the same way — set `LOCAL_LLM_URL` to their `/v1` endpoint.
+
+### Option B: OpenAI API
 
 ```bash
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY=sk-...
+# Set: OPENAI_API_KEY=sk-...
 ```
 
-Restart the Streamlit UI.  The **"🤖 AI Analyst Explanation"** panel will now generate plain-English security briefings after each prediction.
+Restart the Streamlit UI after editing `.env`.  The **"🤖 AI Analyst Explanation"** panel will generate plain-English SOC analyst briefings after each prediction.  If neither variable is set the panel shows a graceful fallback message.
 
 ---
 
