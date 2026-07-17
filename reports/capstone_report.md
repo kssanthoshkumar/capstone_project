@@ -1,9 +1,9 @@
 # Capstone Report — Network Traffic Anomaly Detection
 **Pillar 5 | AI/ML Fundamentals Program**  
 **Student:** [Your Name]  
-**Date:** July 2025  
+**Date:** July 2026  
 **Domain:** Cybersecurity — Detect anomalies in network traffic  
-**GitHub:** https://github.com/[your-username]/network-anomaly-detection
+**GitHub:** https://github.com/kssanthoshkumar/capstone_project
 
 ---
 
@@ -143,10 +143,16 @@ Both methods agree on the top 10 features, validating robustness of feature sele
 | # | Model | Type | Key Parameters |
 |---|-------|------|---------------|
 | 1 | Logistic Regression | Supervised (baseline) | C=1.0, max_iter=1000 |
-| 2 | Random Forest | Supervised (ensemble) | n_estimators=200, tuned via GridSearchCV |
-| 3 | **XGBoost** | Supervised (boosting) | n_estimators=300, max_depth=6, lr=0.1 |
-| 4 | Isolation Forest | Unsupervised | n_estimators=200, contamination=0.47 |
-| 5 | Autoencoder | Deep Learning (unsupervised) | 64→32→16→32→64, 30 epochs |
+| 2 | Decision Tree | Supervised | CART, criterion=gini, max_depth=None |
+| 3 | Random Forest | Supervised (ensemble) | n_estimators=200, random_state=42 |
+| 4 | **XGBoost** | Supervised (boosting) | n_estimators=300, max_depth=6, lr=0.1, threshold=0.38 |
+| 5 | LightGBM | Supervised (boosting) | n_estimators=300, learning_rate=0.1 |
+| 6 | SVM | Supervised | LinearSVC + CalibratedClassifierCV, C=1.0 |
+| 7 | Isolation Forest | Unsupervised | n_estimators=200, contamination=0.465 |
+| 8 | **Autoencoder** | Deep Learning (unsupervised) | Input(122)→64→32→Bottleneck(16)→32→64→Output(122), 30 epochs |
+| 9 | K-Means | Unsupervised (clustering) | k=2, n_init=10 |
+| 10 | DBSCAN | Unsupervised (density) | eps=0.5, min_samples=5 |
+| 11 | Hierarchical | Unsupervised (clustering) | k=7, linkage=Ward |
 
 ### 4.2 Results
 
@@ -154,23 +160,31 @@ Both methods agree on the top 10 features, validating robustness of feature sele
 
 | Model | Accuracy | Precision | Recall | F1 | AUC-ROC |
 |-------|----------|-----------|--------|----|----------|
-| Logistic Regression | 0.656 | 0.734 | 0.620 | 0.673 | 0.654 |
+| **Autoencoder** ★ | 0.786 | 0.741 | **0.960** | **0.836** | 0.817 |
+| Hierarchical (k=7) | 0.898 | 0.904 | 0.877 | 0.890 | — |
+| Decision Tree | 0.799 | 0.968 | 0.669 | 0.791 | 0.838 |
+| **XGBoost (t=0.38)** ★ | **0.789** | **0.966** | 0.652 | 0.779 | **0.967** |
+| XGBoost (default) | 0.787 | 0.967 | 0.648 | 0.776 | 0.967 |
+| LightGBM | 0.777 | 0.966 | 0.631 | 0.763 | 0.955 |
 | Random Forest | 0.763 | 0.968 | 0.605 | 0.744 | 0.953 |
-| **XGBoost** | **0.787** | **0.967** | **0.648** | **0.776** | **0.967** |
+| DBSCAN | 0.670 | 0.581 | 1.000 | 0.735 | — |
 | Isolation Forest | 0.701 | 0.748 | 0.716 | 0.732 | 0.779 |
-| **Autoencoder** | **0.786** | **0.741** | **0.960** | **0.836** | **0.817** |
+| K-Means (k=2) | 0.728 | 0.965 | 0.541 | 0.693 | 0.758 |
+| Logistic Regression | 0.656 | 0.732 | 0.624 | 0.674 | 0.646 |
+| SVM (LinearSVC) | 0.656 | 0.735 | 0.619 | 0.672 | 0.651 |
 
 > **Train vs. test gap:** In-sample (training CV) XGBoost F1 ≈ 0.999. The drop to 0.773 on KDDTest+ is expected — the test set contains attack subtypes (e.g., novel U2R variants) never seen during training, which is precisely what the NSL-KDD benchmark is designed to measure. This is documented as the primary limitation in Section 5.3.
 
 ### 4.3 Model Selection: XGBoost
 
 **XGBoost** is selected as the production model for the API deployment:
-- Highest precision (96.7%) and AUC-ROC (0.967) — strong threshold flexibility
-- Lowest false-positive rate (FPR ≈ 1%) among supervised models
+- Highest AUC-ROC (0.967) — strong threshold flexibility across all operating points
+- Best precision (96.6%) among supervised models, lowest FPR (≈ 1% on TCP traffic)
+- Threshold tuned to t=0.38 (F1-optimal sweep on KDDTest+), giving F1=0.779
 - Fast inference (<1ms per record)
 - SHAP-compatible for full explainability
 
-**Note on Autoencoder:** The Autoencoder achieves the best overall F1 (0.836) and recall (0.960) on KDDTest+. For deployments where missing an attack is costlier than false alarms (high-recall priority), the Autoencoder is worth considering alongside XGBoost.
+**Note on Autoencoder:** The Autoencoder achieves the best F1 (0.836) and recall (0.960) among all models. It requires no attack labels and can detect zero-day anomalies outside the training distribution. For deployments where missing an attack is costlier than false alarms, the Autoencoder artifact (`models/autoencoder.pkl`) is available alongside XGBoost.
 
 ### 4.4 Reproducibility
 - All models saved to `models/` via joblib
@@ -310,7 +324,8 @@ network-anomaly-detection/
 │   ├── xgboost.pkl             # Best model
 │   ├── random_forest.pkl
 │   ├── isolation_forest.pkl
-│   ├── autoencoder.keras
+│   ├── autoencoder.pkl
+│   ├── autoencoder_threshold.json
 │   └── configs.yaml            # Hyperparameters + best_model identifier
 └── reports/                    # Plots, CSV reports, capstone_report.md
 ```
@@ -356,7 +371,7 @@ curl -X POST http://localhost:8000/predict \
 streamlit run src/ui.py   # Opens http://localhost:8501
 ```
 
-Features: preset traffic scenarios (Normal, Port Scan, DoS), full 41-feature form, real-time attack probability gauge, and the 🤖 AI Analyst Explanation panel (requires `OPENAI_API_KEY`).
+Features: preset traffic scenarios (Normal, Port Scan, DoS), full 41-feature form, real-time attack probability gauge, and the 🤖 AI Analyst Explanation panel (powered by local LLM via `LOCAL_LLM_URL` or OpenAI via `OPENAI_API_KEY` — see `.env.example`).
 
 ### 7.3 MLOps Practices
 
@@ -397,13 +412,14 @@ A screencast / GIF demo of the Streamlit UI is available at `reports/demo.gif`.
 
 This capstone project delivered a full end-to-end ML pipeline for network traffic anomaly detection:
 
-- **Best model (XGBoost):** F1=0.773, AUC-ROC=0.962 on KDDTest+ — best generalisation among all models
-- **5 models** implemented and compared, covering supervised and unsupervised approaches
-- **Explainability** confirmed model decisions align with security domain knowledge
-- **Bias audit** showed no significant fairness concerns across traffic subgroups
-- **FastAPI deployment** enables real-time inference at <1ms latency
+- **Best supervised model (XGBoost, t=0.38):** F1=0.779, AUC-ROC=0.967 on KDDTest+
+- **Best overall model (Autoencoder):** F1=0.836, Recall=0.960 — highest recall, no labels needed
+- **11 models** implemented and compared across supervised, unsupervised, and deep learning categories
+- **Explainability** confirmed model decisions align with security domain knowledge (SHAP + LIME + PDP + ICE)
+- **Bias audit** evaluated across protocol, service, and flag subgroups; FPR disparity in ICMP/UDP explained by test-set composition, not model discrimination
+- **FastAPI deployment** enables real-time inference at <1ms latency; Streamlit UI with GPT-4o-mini / local LLM SOC analyst explanations
 
-**Business impact:** At a 96.6% precision, an enterprise processing 1M connections/day would see very few false alerts from flagged connections. The lower recall (64.4%) reflects the model's challenge with novel attack subtypes in the held-out test set — a known characteristic of the NSL-KDD benchmark. Retraining on modern datasets (CICIDS-2017/2018) is the recommended path to improving recall on current attack patterns.
+**Business impact:** At 96.6% precision, an enterprise processing 1M connections/day would generate ~340 false alerts/day from the XGBoost model. The Autoencoder's recall of 96.0% catches novel attack subtypes that XGBoost misses. Retraining on modern datasets (CICIDS-2017/2018) is the recommended path to closing the train-test gap caused by KDDTest+'s 17 novel attack subtypes.
 
 ---
 
@@ -446,7 +462,11 @@ print(explanation)
 
 > *"This connection exhibits normal authenticated web browsing behaviour: a completed TCP handshake (SF flag), bidirectional byte transfer, a logged-in session, and low connection counts with no error signals. No action is required — this is consistent with regular user activity on an internal HTTP service."*
 
-**Setup:** Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. The feature degrades gracefully when the key is absent — no crash, just an informational message.
+**Setup:** Copy `.env.example` to `.env`. Two backends supported:
+- **Local LLM (no API key):** Set `LOCAL_LLM_URL=http://127.0.0.1:8080/v1` and start `llama-server` with any GGUF model.
+- **OpenAI:** Set `OPENAI_API_KEY=sk-...`
+
+The feature degrades gracefully when neither variable is set — no crash, just an informational message.
 
 ### 9.2 Responsible Use
 

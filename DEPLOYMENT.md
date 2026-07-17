@@ -261,21 +261,8 @@ uvicorn src.app:app --port 8000 2>&1 | tee -a logs/api.log
 
 ## 8. Demo
 
-> **Recording the demo (GIF/screencast):**
->
-> 1. Start the Streamlit UI: `streamlit run src/ui.py`
-> 2. Select the **"DoS Attack (Neptune)"** preset from the sidebar
-> 3. Click **"🔍 Analyse Traffic"**
-> 4. Show the ⚠️ ATTACK DETECTED result and probability gauge
-> 5. Expand **"🤖 AI Analyst Explanation"** to show the LLM briefing
-> 6. Switch preset to **"Normal HTTP Traffic"** and repeat
->
-> Recommended tool: [Kap](https://getkap.co/) (macOS) or [ShareX](https://getsharex.com/) (Windows) for GIF export.
-
-Place the recorded file at `reports/demo.gif` and link it in `README.md`:
-
 ```markdown
-![Demo](reports/demo.gif)
+![Demo](network_anomaly_detection_ui_demo_with_genai_deploy.webm)
 ```
 
 ---
